@@ -11,6 +11,9 @@ import matplotlib.pyplot as plt
 import sys
 import numpy
 import matplotlib.pyplot as plt
+import math
+import time
+import numpy as np
 
 class MyJADE :
     def __init__(self,
@@ -35,7 +38,7 @@ class MyJADE :
     def __initGroup(self): # 初始化种群
         self._group = [] # 类里记录的种群 此时是一个空集
         # 根据参数中指定的种群大小  在规定的自变量取值范围内初始化种群
-        for i in range(self._population): # 外层for循环 每循环一次创建出一个个体
+        for _ in range(self._population): # 外层for循环 每循环一次创建出一个个体
             body = [] # 新的个体
             for j in range(self._dimension): # 内层for循环 每循环一次，创建新个体的一个分量
                 r = random.random()  # [0,1]之间的随机数
@@ -45,11 +48,24 @@ class MyJADE :
                 body.append(tmp)
             self._group.append(body)  # 把产生的个体放到种群里
 
+    def __sort(self, left, right):
+        i = left - 1
+        p = self._objectFunciton(self._group[right])
+        for j in range(left, right):
+            if self._objectFunciton(self._group[j]) <= p:
+                i = i + 1
+                self._group[i], self._group[j] = self._group[j], self._group[i]
+        self._group[i+1], self._group[right] = self._group[right], self._group[i + 1]
+        return i+1
+
+    def __quickSort(self, left, right):
+        if left < right:
+            p = self.__sort(left, right)
+            self.__quickSort(left, p - 1)
+            self.__quickSort(p+1, right)
+
     def __sortGroup(self): # 对当前种群做排序
-        for i in range(self._population - 1):
-            for j in range(self._population - i - 1):
-                if (self._objectFunciton(self._group[j]) > self._objectFunciton(self._group[j+1])):
-                    self._group[j], self._group[j+1] = self._group[j+1], self._group[j]
+        self.__quickSort(0, self._population-1)
 
     def __bodyIsEuqal(self, body1, body2): # 判断两个个体是否相同
         for i in range(len(body1)):
@@ -96,14 +112,14 @@ class MyJADE :
                 xr1_index = self.__random() % len(self._group)
                 xr1 = self._group[xr1_index]
                 if not self.__bodyIsEuqal(xi, xr1): # 如果这次拿到的xr1 不等于xi
-                    break;
+                    break
 
             xr2 = []
             while(True): # 拿xr2 xr2不可以和xi,xr1重复
                 xr2_index = self.__random() % len(groupPlusArchive)
                 xr2 = groupPlusArchive[xr2_index]
                 if (not self.__bodyIsEuqal(xi, xr2)) and (not self.__bodyIsEuqal(xr1, xr2)):
-                    break;
+                    break
 
             # 到这里 拿到了xi x_best xr1 xr2
             # vi = xi + F*(x_best - xi) + F*(xr1 - xr2)
@@ -112,14 +128,23 @@ class MyJADE :
             # 【==注意==】 vi[j] 可能会超出自变量的取值范围 当超出范围时，需要限制
 
             # 计算该个体变异时的 F  F是由C(uF,0.1)的柯西分布产生的 标准柯西分布为C(0, 0.1)  C(uF,0.1) = C(0, 0.1) + uF
-            F = numpy.random.standard_cauchy(1) + self._uF
+            # ！！！ F 如果小于0 则重新计算F F如果大于1 则令F=1
+            F = -1
+            while(True):
+                F = numpy.random.standard_cauchy(1) + self._uF
+                if F > 0:
+                    break
+            if F > 1:
+                F = 1
+
             self._FList.append(F)
             for j in range(self._dimension):
                 tmp = xi[j] + F*(x_best[j] - xi[j]) + F * (xr1[j] - xr2[j])
-                if tmp > self._limit[j][1]:
-                    tmp = self._limit[j][1]
-                if tmp < self._limit[j][0]:
-                    tmp = self._limit[j][0]
+                minValue = self._limit[j][0]  # 第j个自变量取值的最小值
+                maxValue = self._limit[j][1]  # 第j个自变量取值的最大值
+                if tmp > maxValue or tmp < minValue:
+                    r = random.random()  # [0,1]之间的随机数
+                    tmp = minValue + (maxValue - minValue) * r # minValue <= tmp <= maxValue
                 vi.append(tmp)
 
             self._vlist.append(vi)
@@ -129,7 +154,12 @@ class MyJADE :
         self._CRList = []
         for i in range(self._population):
             # 为当前个体计算CR
+            # !!! CR > 1 令 CR = 1  CR < 0 令 CR = 0
             CR = random.normalvariate(self._uCR, 0.1)
+            if CR < 0:
+                CR = 0
+            if CR > 1:
+                CR = 1
             self._CRList.append(CR)
             u = []
             for j in range(self._dimension):
@@ -182,7 +212,7 @@ class MyJADE :
         for i in range(len(list)):
             pSum = pSum + pow(list[i], 2)
             sum = sum + list[i]
-        return 1.0 * pSum / sum;
+        return 1.0 * pSum / sum
 
     def __updateParam(self): # 更新参数
         self._uCR = 0.5 * self._uCR + 0.5 * self.__mean(self._SelectedCRList)
@@ -192,13 +222,15 @@ class MyJADE :
             self._archive.remove(self._archive[r_index])
 
     def Fit(self, showGenerationPiction = False, title = "JADE"): # 这个是外部调用的函数
+        _output = sys.stdout
         self.__initGroup()
         for i in range(self._generation):
             self.__variation()
             self.__crossover()
             self.__select()
             self.__updateParam()
-
+            _output.write(f'\rcomplete percent:{i:.0f}/{self._generation:.0f}/best:{self._minObjectFunctionValue:.18f}')
+        _output.flush()    
         if showGenerationPiction == True: # 如果需要画图
             x = []
             for i in range(self._generation):
@@ -207,7 +239,7 @@ class MyJADE :
             plt.title(title)
             plt.xlabel('generation')
             plt.ylabel('objection_function_value')
-            plt.scatter(x, self._eachGenerationMin, marker='^', s=30)
+            plt.scatter(x, self._eachGenerationMin, marker='*', s=30)
             plt.show()
         return self._bestSolution, self._minObjectFunctionValue
 
@@ -215,9 +247,28 @@ class MyJADE :
 def testObjFunction(list):
     return list[0]**2 + list[1]**3 + list[2]**2
 
+def testFunction_10(list): # list 是自变量向量 X = [x0,x1,...,xn]
+    D = len(list)
+    tmp_1 = 0.0
+    tmp_2 = 0.0
+    for i in range(D):
+        tmp_1 = tmp_1 + pow(list[i], 2.0)
+        tmp_2 = tmp_2 + math.cos(2 * math.pi * list[i])
+    tmp_1 = tmp_1 / D
+    tmp_1 = -0.2 * pow(tmp_1, 0.5)
+    tmp_1 = -20 * math.exp(tmp_1)
+        
+    tmp_2 = tmp_2 / D
+    tmp_2 = -1.0 * math.exp(tmp_2)
+
+    return tmp_1 + tmp_2 + 20 + math.e
+
 if __name__ == "__main__":
-    limit = [[-1,1],[-1,1],[0,1]]
-    jade = MyJADE(testObjFunction, limit, 10, 100)
+    #limit = [[-1,1],[-1,1],[0,1]]
+    limit = []
+    for i in range(100):
+        limit.append([-32, 32])
+    jade = MyJADE(testFunction_10, limit, 400, 3000)
     s, b = jade.Fit(True)
     str = "最优解:["
     for i in range(len(s)):
