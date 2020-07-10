@@ -13,7 +13,6 @@ import numpy
 import matplotlib.pyplot as plt
 import math
 import time
-import numpy as np
 
 class MyJADE :
     def __init__(self,
@@ -229,7 +228,9 @@ class MyJADE :
             self.__crossover()
             self.__select()
             self.__updateParam()
-            _output.write(f'\rcomplete percent:{i:.0f}/{self._generation:.0f}/best:{self._minObjectFunctionValue:.18f}')
+            #str = "{}/{}/{}".format(i, self._generation, self._minObjectFunctionValue)
+            _output.write(f'\rcomplete percent:{i:.0f}/{self._generation:.0f}/best:{float(self._minObjectFunctionValue):.25f}')
+            #_output.write(str)
         _output.flush()    
         if showGenerationPiction == True: # 如果需要画图
             x = []
@@ -263,12 +264,46 @@ def testFunction_10(list): # list 是自变量向量 X = [x0,x1,...,xn]
 
     return tmp_1 + tmp_2 + 20 + math.e
 
+def testFunction_12(list, a=10, k=1000, m=4):
+    D = len(list)
+    yList = []
+    uSum = 0.0
+    for i in range(D):
+        xi = list[i]
+        yi = 1.0 + 0.25 * (xi+1)
+        yList.append(yi)
+        ui = 0
+        if xi > a:
+            ui = k * pow((xi - a), m)
+        elif xi < -1.0 * a:
+            ui = k * pow((-1.0 * xi - a), m)
+        else:
+            ui = 0
+        uSum = uSum + ui
+    tmp = 10 * pow(math.sin(math.pi * yList[0]), 2.0)
+    for i in range(D-1):
+        tmp = tmp + pow( yList[i] - 1, 2) * (1 + 10 * pow(math.sin(math.pi*yList[i+1]),2) )
+
+    tmp = (math.pi / D) * (tmp + yList[D-1] ** 2)
+    return (tmp + uSum)
+    
 if __name__ == "__main__":
-    #limit = [[-1,1],[-1,1],[0,1]]
+    '''
     limit = []
     for i in range(100):
         limit.append([-32, 32])
     jade = MyJADE(testFunction_10, limit, 400, 3000)
+    s, b = jade.Fit(True)
+    str = "最优解:["
+    for i in range(len(s)):
+        str += " {}".format(s[i])
+    str += "] 目标函数值:[{}]".format(b)
+    print(str)
+    '''
+    limit = []
+    for i in range(5):
+        limit.append([-50, 50])
+    jade = MyJADE(testFunction_12, limit, 30, 500)
     s, b = jade.Fit(True)
     str = "最优解:["
     for i in range(len(s)):
