@@ -228,9 +228,7 @@ class MyJADE :
             self.__crossover()
             self.__select()
             self.__updateParam()
-            #str = "{}/{}/{}".format(i, self._generation, self._minObjectFunctionValue)
             _output.write(f'\rcomplete percent:{i:.0f}/{self._generation:.0f}/best:{float(self._minObjectFunctionValue):.25f}')
-            #_output.write(str)
         _output.flush()    
         if showGenerationPiction == True: # 如果需要画图
             x = []
@@ -286,7 +284,15 @@ def testFunction_12(list, a=10, k=1000, m=4):
 
     tmp = (math.pi / D) * (tmp + yList[D-1] ** 2)
     return (tmp + uSum)
-    
+
+def testFunction_11(list):
+    tmp1 = 0
+    tmp2 = 1
+    for i in range(len(list)):
+        tmp1 =  tmp1 + ( pow ( list[i] , 2 ) ) * ( 1 / 4000)
+        tmp2 = tmp2 * math.cos ( list[i] / pow( (i + 1) , 0.5 ) )
+    return tmp1 - tmp2 + 1
+
 if __name__ == "__main__":
     '''
     limit = []
@@ -301,10 +307,11 @@ if __name__ == "__main__":
     print(str)
     '''
     limit = []
-    for i in range(5):
-        limit.append([-50, 50])
-    jade = MyJADE(testFunction_12, limit, 30, 500)
-    s, b = jade.Fit(True)
+    for i in range(2):
+        limit.append([-600 , 600])
+    #[[9,80],[5,90]]
+    jade = MyJADE(testFunction_11, limit, 30, 500)
+    s , b = jade.Fit(True)
     str = "最优解:["
     for i in range(len(s)):
         str += " {}".format(s[i])
